@@ -5,6 +5,7 @@
 #include <cmath>
 #include <iomanip>
 
+using std::pair;
 using std::vector;
 
 class InterpolationFunction {
@@ -13,21 +14,27 @@ private:
 
     double a_, b_;
 
-    vector<double> table_points_;
+    vector<pair<double,double>> table_points_;
 
     std::function<double(double)> func_;
+
+    void GetTablePoints(vector<pair<double,double>>& table) {
+        size_t n = table.size();
+        double length = (b_ - a_)/(int)(n - 1);
+
+        for(int i = 0; i < n; i++) {
+            double tmp = a_ + length * i;
+            table[i].first = tmp;
+            table[i].second = func_(tmp);
+        }
+    }
 public:
 
     InterpolationFunction(int count_point, double a, double b, std::function<double(double)> func) :
         count_point_(count_point), table_points_(count_point), a_(a), b_(b) {
-
-        double length = (b - a)/(count_point - 1);
         func_ = std::move(func);
 
-        for(int i = 0; i < count_point; i++) {
-            double tmp = a + length * i;
-            table_points_[i] = tmp;
-        }
+        GetTablePoints(table_points_);
     }
 
 
@@ -40,10 +47,10 @@ public:
             for(int j = 0; j < count_point_; j++) {
                 if(j == i)
                     continue;
-                c_up *= x - table_points_[j];
-                c_down *= table_points_[i] - table_points_[j];
+                c_up *= x - table_points_[j].first;
+                c_down *= table_points_[i].first - table_points_[j].first;
             }
-            sum += func_(table_points_[i]) * c_up / c_down;
+            sum += table_points_[i].second * c_up / c_down;
         }
         return sum;
     }
@@ -53,35 +60,31 @@ public:
     }
 
     void CheckNewPoint(int new_count_point) {
-        vector<double> checked_table_points_(new_count_point);
+        vector<pair<double, double>> checked_table_points_(new_count_point);
+        int size = 20;
 
-        double length = (b_ - a_) / (new_count_point - 1);
-
-        for (int i = 0; i < new_count_point; i++) {
-            double tmp = a_ + length * i;
-            checked_table_points_[i] = tmp;
-        }
+        GetTablePoints(checked_table_points_);
 
         std::cout << std::left << std::setw(3) << "i"
-                  << "| "<< std::setw(20) << "x_i"
-                  << "| "<< std::setw(20) << "f(x_i)"
-                  << "| "<< std::setw(20) << "Lagrange"
-                  << "| "<< std::setw(20) << "Error" << std::endl;
+                  << "| "<< std::setw(size) << "x_i"
+                  << "| "<< std::setw(size) << "f(x_i)"
+                  << "| "<< std::setw(size) << "Lagrange"
+                  << "| "<< std::setw(size) << "Error" << std::endl;
 
-        std::cout << std::setfill('-') << std::setw(83) << "" << std::setfill(' ') << std::endl;
+        std::cout << std::setfill('-') << std::setw(size*4) << "" << std::setfill(' ') << std::endl;
 
         double max = 0;
         for (int i = 0; i < new_count_point; i++) {
-            double x = checked_table_points_[i],tmp = GetErrorInterpolation(x);
-
-            if(max < tmp)
-                max = tmp;
+            double x = checked_table_points_[i].first, y = checked_table_points_[i].second;
+            double lagrange = MethodLagrange(x), error = std::abs(y - lagrange);
+            if(max < error)
+                max = error;
 
             std::cout << std::fixed << std::setprecision(10) << std::left << std::setw(3) << i
-                      << "| " << std::setw(20) << x
-                      << "| " << std::setw(20) << func_(x)
-                      << "| " << std::setw(20) << MethodLagrange(x)
-                      << "| " << std::setw(20) << tmp << std::endl;
+                      << "| " << std::setw(size) << x
+                      << "| " << std::setw(size) << y
+                      << "| " << std::setw(size) << lagrange
+                      << "| " << std::setw(size) << error << std::endl;
         }
         std::cout << "MaxError: " <<max;
     }
