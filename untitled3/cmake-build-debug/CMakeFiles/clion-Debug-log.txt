@@ -1,1 +1,0 @@
-CMakeLists.txt not found in /home/dno/CLionProjects/untitled3 Select CMakeLists.txt
