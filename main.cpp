@@ -9,7 +9,7 @@ using std::pair;
 using std::vector;
 
 class InterpolationFunction {
-private:
+protected:
     int count_point_;
 
     double a_, b_;
@@ -55,10 +55,6 @@ public:
         return sum;
     }
 
-    double GetErrorInterpolation(double x) {
-        return std::abs(func_(x) - MethodLagrange(x));
-    }
-
     void CheckNewPoint(int new_count_point) {
         vector<pair<double, double>> checked_table_points_(new_count_point);
         int size = 20;
@@ -90,6 +86,57 @@ public:
     }
 };
 
+class SplineCube : protected InterpolationFunction{
+private:
+
+    vector<vector<double>> TableValue;
+
+    vector<double> MethodPushDown(vector<double> d_up, vector<double> d_mid, vector<double> d_down, vector<double> d) {
+
+        size_t s = d_mid.size();
+        vector<double> x(s), a(s-1), b(s-1);
+
+        a[0] = -d_up[0] / d_mid[0];
+        b[0] = d[0] / d_mid[0];
+
+        for(int i = 1; i < s-1; i++) {
+            if(i == s - 1)
+                continue;
+
+            a[i] = -d_up[i] / (d_mid[i] + a[i-1]*d_down[i-1]);
+            b[i] = (d[i] - d_down[i-1]*b[i-1])/(d_mid[i] + a[i-1]*d_down[i-1]);
+
+        }
+
+        x[s-1] = (d[s-1] - d_down[s-2]*b[s-2])/(d_mid[s-1] + a[s-2]*d_down[s-2]);
+
+        for(int i = (int)(s-2); i >= 0; i--) {
+            x[i] = b[i] + a[i]*x[i+1];
+        }
+
+        return x;
+    }
+
+
+
+public:
+
+    SplineCube(int count_point, int a, int b, std::function<double(double)> func) :
+    InterpolationFunction(count_point, a, b, std::move(func)), TableValue(4,vector<double>(count_point)) {
+        for(int i = 0; i < count_point; i++) {
+            TableValue[0][i] = table_points_[i].second;
+        }
+    }
+
+
+
+    void re() {
+
+
+    }
+};
+
+
 double func(double x) {
     return 1/(x * x + 25);
 }
@@ -99,8 +146,10 @@ int main() {
     int a, b, count_point;
     std::cin >> count_point >> a >> b;
 
-    InterpolationFunction obj(count_point,a,b,func);
-    obj.CheckNewPoint(10);
+    //InterpolationFunction obj(count_point,a,b,func);
+    //obj.CheckNewPoint(10);
+
+
 
     return 0;
 }
