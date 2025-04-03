@@ -132,6 +132,40 @@ public:
 
     void re() {
 
+        TableValue[2][0] = TableValue[2][count_point_ - 1] = TableValue[1][0] = TableValue[3][0] = 0;
+
+        vector<double> a(count_point_ - 3), b(count_point_ - 2), c(count_point_ - 3), d(count_point_ - 2), x(count_point_ - 2);
+
+        auto h = [this](int i){return table_points_[i].first - table_points_[i-1].first;};
+
+        auto f = [this, &h](int i){return (table_points_[i+1].second - table_points_[i].second) / h(i+1);};
+
+        for(int i = 1; i < count_point_ - 1; i++) {
+            b[i - 1] = 2 * (h(i) + h(i + 1));
+
+            d[i - 1] = 6*(f(i) - f(i - 1));
+        }
+
+        for(int i = 1; i < count_point_ - 2; i++) {
+            a[i - 1] = h(i);
+
+            b[i - 1] = h(i+1);
+        }
+
+        x = MethodPushDown(a,b,c,d);
+
+        for(int i = 1; i < count_point_ - 1; i++)
+            TableValue[2][i] = x[i - 1];
+
+        for(int i = 1; i < count_point_; i++) {
+            TableValue[3][i] = (x[i] - x[i - 1]) / h(i);
+
+            TableValue[1][i] = (h(i) * x[i] / 2) - (h(i) * h(i) * TableValue[3][i] / 6) + f(i-1);
+
+        }
+
+
+
 
     }
 };
