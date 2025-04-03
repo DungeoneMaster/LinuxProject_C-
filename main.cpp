@@ -134,7 +134,7 @@ public:
 
         TableValue[2][0] = TableValue[2][count_point_ - 1] = TableValue[1][0] = TableValue[3][0] = 0;
 
-        vector<double> a(count_point_ - 3), b(count_point_ - 2), c(count_point_ - 3), d(count_point_ - 2), x(count_point_ - 2);
+        vector<double> a(count_point_ - 3), b(count_point_ - 2), d(count_point_ - 2), x(count_point_ - 2);
 
         auto h = [this](int i){return table_points_[i].first - table_points_[i-1].first;};
 
@@ -146,13 +146,10 @@ public:
             d[i - 1] = 6*(f(i) - f(i - 1));
         }
 
-        for(int i = 1; i < count_point_ - 2; i++) {
+        for(int i = 1; i < count_point_ - 2; i++)
             a[i - 1] = h(i);
 
-            b[i - 1] = h(i+1);
-        }
-
-        x = MethodPushDown(a,b,c,d);
+        x = MethodPushDown(a,b,a,d);
 
         for(int i = 1; i < count_point_ - 1; i++)
             TableValue[2][i] = x[i - 1];
