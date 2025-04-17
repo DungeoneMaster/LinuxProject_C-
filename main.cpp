@@ -1,186 +1,82 @@
 #include <iostream>
-#include <utility>
 #include <vector>
-#include <functional>
 #include <cmath>
 #include <iomanip>
 
-using std::pair;
-using std::vector;
+using namespace std;
 
-class InterpolationFunction {
-protected:
-    int count_point_;
-
-    double a_, b_;
-
-    vector<pair<double,double>> table_points_;
-
-    std::function<double(double)> func_;
-
-    void GetTablePoints(vector<pair<double,double>>& table) {
-        size_t n = table.size();
-        double length = (b_ - a_)/(int)(n - 1);
-
-        for(int i = 0; i < n; i++) {
-            double tmp = a_ + length * i;
-            table[i].first = tmp;
-            table[i].second = func_(tmp);
-        }
-    }
-public:
-
-    InterpolationFunction(int count_point, double a, double b, std::function<double(double)> func) :
-        count_point_(count_point), table_points_(count_point), a_(a), b_(b) {
-        func_ = std::move(func);
-
-        GetTablePoints(table_points_);
-    }
-
-
-
-    double MethodLagrange(double x) {
-        double sum = 0;
-        for(int i = 0; i < count_point_; i++) {
-            double c_up = 1, c_down = 1;
-
-            for(int j = 0; j < count_point_; j++) {
-                if(j == i)
-                    continue;
-                c_up *= x - table_points_[j].first;
-                c_down *= table_points_[i].first - table_points_[j].first;
-            }
-            sum += table_points_[i].second * c_up / c_down;
-        }
-        return sum;
-    }
-
-    void CheckNewPoint(int new_count_point) {
-        vector<pair<double, double>> checked_table_points_(new_count_point);
-        int size = 20;
-
-        GetTablePoints(checked_table_points_);
-
-        std::cout << std::left << std::setw(3) << "i"
-                  << "| "<< std::setw(size) << "x_i"
-                  << "| "<< std::setw(size) << "f(x_i)"
-                  << "| "<< std::setw(size) << "Lagrange"
-                  << "| "<< std::setw(size) << "Error" << std::endl;
-
-        std::cout << std::setfill('-') << std::setw(size*4) << "" << std::setfill(' ') << std::endl;
-
-        double max = 0;
-        for (int i = 0; i < new_count_point; i++) {
-            double x = checked_table_points_[i].first, y = checked_table_points_[i].second;
-            double lagrange = MethodLagrange(x), error = std::abs(y - lagrange);
-            if(max < error)
-                max = error;
-
-            std::cout << std::fixed << std::setprecision(10) << std::left << std::setw(3) << i
-                      << "| " << std::setw(size) << x
-                      << "| " << std::setw(size) << y
-                      << "| " << std::setw(size) << lagrange
-                      << "| " << std::setw(size) << error << std::endl;
-        }
-        std::cout << "MaxError: " <<max;
-    }
-};
-
-class SplineCube : protected InterpolationFunction{
-private:
-
-    vector<vector<double>> TableValue;
-
-    vector<double> MethodPushDown(vector<double> d_up, vector<double> d_mid, vector<double> d_down, vector<double> d) {
-
-        size_t s = d_mid.size();
-        vector<double> x(s), a(s-1), b(s-1);
-
-        a[0] = -d_up[0] / d_mid[0];
-        b[0] = d[0] / d_mid[0];
-
-        for(int i = 1; i < s-1; i++) {
-            if(i == s - 1)
-                continue;
-
-            a[i] = -d_up[i] / (d_mid[i] + a[i-1]*d_down[i-1]);
-            b[i] = (d[i] - d_down[i-1]*b[i-1])/(d_mid[i] + a[i-1]*d_down[i-1]);
-
-        }
-
-        x[s-1] = (d[s-1] - d_down[s-2]*b[s-2])/(d_mid[s-1] + a[s-2]*d_down[s-2]);
-
-        for(int i = (int)(s-2); i >= 0; i--) {
-            x[i] = b[i] + a[i]*x[i+1];
-        }
-
-        return x;
-    }
-
-
-
-public:
-
-    SplineCube(int count_point, int a, int b, std::function<double(double)> func) :
-    InterpolationFunction(count_point, a, b, std::move(func)), TableValue(4,vector<double>(count_point)) {
-        for(int i = 0; i < count_point; i++) {
-            TableValue[0][i] = table_points_[i].second;
-        }
-    }
-
-
-
-    void re() {
-
-        TableValue[2][0] = TableValue[2][count_point_ - 1] = TableValue[1][0] = TableValue[3][0] = 0;
-
-        vector<double> a(count_point_ - 3), b(count_point_ - 2), d(count_point_ - 2), x(count_point_ - 2);
-
-        auto h = [this](int i){return table_points_[i].first - table_points_[i-1].first;};
-
-        auto f = [this, &h](int i){return (table_points_[i+1].second - table_points_[i].second) / h(i+1);};
-
-        for(int i = 1; i < count_point_ - 1; i++) {
-            b[i - 1] = 2 * (h(i) + h(i + 1));
-
-            d[i - 1] = 6*(f(i) - f(i - 1));
-        }
-
-        for(int i = 1; i < count_point_ - 2; i++)
-            a[i - 1] = h(i);
-
-        x = MethodPushDown(a,b,a,d);
-
-        for(int i = 1; i < count_point_ - 1; i++)
-            TableValue[2][i] = x[i - 1];
-
-        for(int i = 1; i < count_point_; i++) {
-            TableValue[3][i] = (x[i] - x[i - 1]) / h(i);
-
-            TableValue[1][i] = (h(i) * x[i] / 2) - (h(i) * h(i) * TableValue[3][i] / 6) + f(i-1);
-
-        }
-
-
-
-
-    }
-};
-
-
-double func(double x) {
-    return 1/(x * x + 25);
+// Функция для ОДУ 1-го порядка: y' = f(x, y)
+double f(double x, double y) {
+    return x * y; // Пример: y' = x*y
 }
 
+// Функции для системы ОДУ 2-го порядка: y'' = f(x, y, y')
+double f1(double x, double y, double z) {
+    return z; // y' = z
+}
+
+double f2(double x, double y, double z) {
+    return -y; // z' = -y (пример: y'' + y = 0)
+}
+
+// Метод Эйлера с уточнением для ОДУ 1-го порядка
+void euler_refined_1st_order(double (*f)(double, double), double x0, double y0, double h, int steps) {
+    double x = x0, y = y0;
+    cout << "Метод Эйлера с уточнением (1-го порядка):" << endl;
+    cout << "x\t\ty" << endl;
+    cout << fixed << setprecision(6);
+    cout << x << "\t\t" << y << endl;
+
+    for (int i = 0; i < steps; ++i) {
+        double y_pred = y + h * f(x, y);
+        double y_corr = y + (h / 2) * (f(x, y) + f(x + h, y_pred));
+
+        x += h;
+        y = y_corr;
+
+        cout << x << "\t\t" << y << endl;
+    }
+}
+
+// Метод Эйлера с уточнением для системы ОДУ 2-го порядка
+void euler_refined_2nd_order(
+        double (*f1)(double, double, double),
+        double (*f2)(double, double, double),
+        double x0, double y0, double z0, double h, int steps
+) {
+    double x = x0, y = y0, z = z0;
+    cout << "Метод Эйлера с уточнением (2-го порядка):" << endl;
+    cout << "x\t\ty\t\tz" << endl;
+    cout << fixed << setprecision(6);
+    cout << x << "\t\t" << y << "\t\t" << z << endl;
+
+    for (int i = 0; i < steps; ++i) {
+        // Предсказание
+        double y_pred = y + h * f1(x, y, z);
+        double z_pred = z + h * f2(x, y, z);
+
+        // Коррекция
+        double y_corr = y + (h / 2) * (f1(x, y, z) + f1(x + h, y_pred, z_pred));
+        double z_corr = z + (h / 2) * (f2(x, y, z) + f2(x + h, y_pred, z_pred));
+
+        x += h;
+        y = y_corr;
+        z = z_corr;
+
+        cout << x << "\t\t" << y << "\t\t" << z << endl;
+    }
+}
 
 int main() {
-    int a, b, count_point;
-    std::cin >> count_point >> a >> b;
+    double x0 = 0.0, y0 = 1.0, z0 = 0.0; // Начальные условия
+    double h = 0.1; // Шаг
+    int steps = 10; // Количество шагов
 
-    //InterpolationFunction obj(count_point,a,b,func);
-    //obj.CheckNewPoint(10);
+    // Решение ОДУ 1-го порядка
+    euler_refined_1st_order(f, x0, y0, h, steps);
 
-
+    // Решение системы ОДУ 2-го порядка (пример: y'' + y = 0)
+    euler_refined_2nd_order(f1, f2, x0, y0, z0, h, steps);
 
     return 0;
 }
