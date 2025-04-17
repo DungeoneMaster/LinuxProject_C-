@@ -5,78 +5,94 @@
 
 using namespace std;
 
-// Функция для ОДУ 1-го порядка: y' = f(x, y)
-double f(double x, double y) {
-    return x * y; // Пример: y' = x*y
-}
-
-// Функции для системы ОДУ 2-го порядка: y'' = f(x, y, y')
-double f1(double x, double y, double z) {
-    return z; // y' = z
-}
-
-double f2(double x, double y, double z) {
-    return -y; // z' = -y (пример: y'' + y = 0)
-}
-
-// Метод Эйлера с уточнением для ОДУ 1-го порядка
-void euler_refined_1st_order(double (*f)(double, double), double x0, double y0, double h, int steps) {
-    double x = x0, y = y0;
-    cout << "Метод Эйлера с уточнением (1-го порядка):" << endl;
-    cout << "x\t\ty" << endl;
-    cout << fixed << setprecision(6);
-    cout << x << "\t\t" << y << endl;
-
-    for (int i = 0; i < steps; ++i) {
-        double y_pred = y + h * f(x, y);
-        double y_corr = y + (h / 2) * (f(x, y) + f(x + h, y_pred));
-
-        x += h;
-        y = y_corr;
-
-        cout << x << "\t\t" << y << endl;
+// Умножение матрицы на вектор
+vector<double> matrixVectorMultiply(const vector<vector<double>>& A, const vector<double>& y) {
+    int n = A.size();
+    vector<double> result(n, 0.0);
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            result[i] += A[i][j] * y[j];
+        }
     }
+    return result;
 }
 
-// Метод Эйлера с уточнением для системы ОДУ 2-го порядка
-void euler_refined_2nd_order(
-        double (*f1)(double, double, double),
-        double (*f2)(double, double, double),
-        double x0, double y0, double z0, double h, int steps
-) {
-    double x = x0, y = y0, z = z0;
-    cout << "Метод Эйлера с уточнением (2-го порядка):" << endl;
-    cout << "x\t\ty\t\tz" << endl;
-    cout << fixed << setprecision(6);
-    cout << x << "\t\t" << y << "\t\t" << z << endl;
+// Функция для вычисления производных
+// Преобразуем систему 2-го порядка в систему 1-го порядка:
+// dy/dt = v
+// dv/dt = A*y
+void derivatives(const vector<vector<double>>& A,
+                 const vector<double>& y,
+                 const vector<double>& v,
+                 vector<double>& dydt,
+                 vector<double>& dvdt) {
+    dydt = v;  // dy/dt = v
+    dvdt = matrixVectorMultiply(A, y);  // dv/dt = A*y
+}
 
-    for (int i = 0; i < steps; ++i) {
-        // Предсказание
-        double y_pred = y + h * f1(x, y, z);
-        double z_pred = z + h * f2(x, y, z);
+// Метод Эйлера с уточнением для системы 2-го порядка
+void eulerWithRefinement(const vector<vector<double>>& A,
+                         vector<double>& y,
+                         vector<double>& v,
+                         double& t,
+                         double h) {
+    int n = y.size();
+    vector<double> dydt(n), dvdt(n);
+    vector<double> y_temp(n), v_temp(n);
+    vector<double> dydt_temp(n), dvdt_temp(n);
 
-        // Коррекция
-        double y_corr = y + (h / 2) * (f1(x, y, z) + f1(x + h, y_pred, z_pred));
-        double z_corr = z + (h / 2) * (f2(x, y, z) + f2(x + h, y_pred, z_pred));
+    // Шаг 1: вычисляем производные в начальной точке
+    derivatives(A, y, v, dydt, dvdt);
 
-        x += h;
-        y = y_corr;
-        z = z_corr;
-
-        cout << x << "\t\t" << y << "\t\t" << z << endl;
+    // Шаг 2: предварительный шаг Эйлера
+    for (int i = 0; i < n; i++) {
+        y_temp[i] = y[i] + h * dydt[i];
+        v_temp[i] = v[i] + h * dvdt[i];
     }
+
+    // Шаг 3: вычисляем производные в новой точке
+    derivatives(A, y_temp, v_temp, dydt_temp, dvdt_temp);
+
+    // Шаг 4: уточнение (используем среднее значение производных)
+    for (int i = 0; i < n; i++) {
+        y[i] += h * 0.5 * (dydt[i] + dydt_temp[i]);
+        v[i] += h * 0.5 * (dvdt[i] + dvdt_temp[i]);
+    }
+
+    t += h;
 }
 
 int main() {
-    double x0 = 0.0, y0 = 1.0, z0 = 0.0; // Начальные условия
-    double h = 0.1; // Шаг
-    int steps = 10; // Количество шагов
+    // Параметры системы
+    const int n = 2;  // Размерность системы
+    double t0 = 0.0;  // Начальное время
+    double h = 0.01;  // Шаг интегрирования
+    int steps = 1000; // Количество шагов
 
-    // Решение ОДУ 1-го порядка
-    euler_refined_1st_order(f, x0, y0, h, steps);
+    // Матрица коэффициентов A (пример для связанных осцилляторов)
+    vector<vector<double>> A = {{-2.0, 1.0},
+                                {1.0, -2.0}};
 
-    // Решение системы ОДУ 2-го порядка (пример: y'' + y = 0)
-    euler_refined_2nd_order(f1, f2, x0, y0, z0, h, steps);
+    // Начальные условия: y(0) и y'(0)
+    vector<double> y = {1.0, 0.0};  // Начальные положения
+    vector<double> v = {0.0, 0.0};  // Начальные скорости
+
+    cout << "Метод Эйлера с уточнением для системы d^2y/dt^2 = A*y" << endl;
+    cout << "Шаг h = " << h << endl;
+    cout << setw(10) << "t" << setw(15) << "y1(t)" << setw(15) << "y2(t)"
+         << setw(15) << "v1(t)" << setw(15) << "v2(t)" << endl;
+    cout << setw(10) << t0 << setw(15) << y[0] << setw(15) << y[1]
+         << setw(15) << v[0] << setw(15) << v[1] << endl;
+
+    for (int i = 0; i < steps; i++) {
+        eulerWithRefinement(A, y, v, t0, h);
+
+        // Вывод результатов каждые 50 шагов
+        if (i % 50 == 0) {
+            cout << setw(10) << t0 << setw(15) << y[0] << setw(15) << y[1]
+                 << setw(15) << v[0] << setw(15) << v[1] << endl;
+        }
+    }
 
     return 0;
 }
