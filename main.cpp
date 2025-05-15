@@ -1,121 +1,76 @@
-#include <iostream>
-#include <vector>
-#include <cmath>
-#include <fstream>
-#include <iomanip>
-
-using namespace std;
-
-// Компоненты электрического поля (константы)
-const double Ex = 0.0;
-const double Ey = 1.0;
-
-// Функция вычисления производных
-void derivatives(const vector<double>& r, const vector<double>& v,
-                 vector<double>& drdt, vector<double>& dvdt) {
-    // Пространственные производные
-    drdt[0] = v[0];  // dx/dt = vx
-    drdt[1] = v[1];  // dy/dt = vy
-
-    // Производные скоростей (ускорения)
-    dvdt[0] = Ex;  // dvx/dt = Ex
-    dvdt[1] = Ey;  // dvy/dt = Ey
+#include<iostream>
+#include<vector>
+#include<cmath>
+void Euler(double x0, double y0, double Vx0, double Vy0, double h, int& n, std::vector<double>& Netx, std::vector<double>& Nety) {
+    double x = x0;
+    double y = y0;
+    double Vx = Vx0;
+    double Vy = Vy0;
+    int N = -1;
+    do {
+        ++N;
+        x0 = x;
+        y0 = y;
+        Vx0 = Vx;
+        Vy0 = Vy;
+        x = x0 + (h * Vx0);
+        y = y0 + (h * Vy0);
+        Netx.push_back(x);
+        Nety.push_back(y);
+        Vx = Vx0 + (h  * x0);
+        Vy = Vy0 + (h * y0);
+        //std::cout << fabs(x * y - 0.07) << '/n';
+    } while ((x < 1) && (y < 1));
+    n = N - 1;
+    //return x0 * y0;
 }
 
-// Метод Эйлера с уточнением
-void eulerWithRefinement(vector<double>& r, vector<double>& v, double& t, double h) {
-    vector<double> drdt(2), dvdt(2);
-    vector<double> r_temp(2), v_temp(2);
-    vector<double> drdt_temp(2), dvdt_temp(2);
-
-    // 1. Вычисляем производные в текущей точке
-    derivatives(r, v, drdt, dvdt);
-
-    // 2. Предварительный шаг Эйлера
-    for (int i = 0; i < 2; i++) {
-        r_temp[i] = r[i] + h * drdt[i];
-        v_temp[i] = v[i] + h * dvdt[i];
-    }
-
-    // 3. Вычисляем производные в новой точке
-    derivatives(r_temp, v_temp, drdt_temp, dvdt_temp);
-
-    // 4. Уточнение решения
-    for (int i = 0; i < 2; i++) {
-        r[i] += h * 0.5 * (drdt[i] + drdt_temp[i]);
-        v[i] += h * 0.5 * (dvdt[i] + dvdt_temp[i]);
-    }
-
-    t += h;
+/*  do {
+    ++N;
+    x0 = x;
+    y0 = y;
+    Vx0 = Vx;
+    Vy0 = Vy;
+    x = x0 + (h * Vx0);
+    y = y0 + (h * Vy0);
+    Vx = Vx0 + (h * x0);
+    Vy = Vy0 + (h * y0);
+    std::cout << fabs(x * y - 0.07) << '/n';
+  } while ((x < 1) && (y < 1) && N < 20);
+  n = N - 1;
+  return x0 * y0;
 }
-
-// Аналитическое решение
-void analyticalSolution(double t, double x0, double y0,
-                        double vx0, double vy0,
-                        double& x, double& y,
-                        double& vx, double& vy) {
-    x = x0 + vx0*t + 0.5*Ex*t*t;
-    y = y0 + vy0*t + 0.5*Ey*t*t;
-    vx = vx0 + Ex*t;
-    vy = vy0 + Ey*t;
-}
+*/
 
 int main() {
-    // Параметры расчета
-    double t0 = 0.0;
-    double h = 0.01;
-    int steps = 1000;
+    double x0 = 0.01 * 7;
+    double y0 = 1;
+    double Vx0 = 0.01 * 7;
+    double Vy0 = -1;
+    double Ca = 0.01 * 7;
+    double h = 0.1;
+    double H = h / 2;
 
-    // Начальные условия
-    vector<double> r = {0.0, 0.0};  // положение (x, y)
-    vector<double> v = {1.0, 0.0};  // скорость (vx, vy)
+    int k = 0,n = 0,m = 0;
 
-    // Для аналитического решения
-    double x0 = r[0], y0 = r[1];
-    double vx0 = v[0], vy0 = v[1];
+    std::vector<double> Net1x,Net1y,Net2x,Net2y,resx,resy;
+    Net1x.push_back(x0);
 
-    // Открываем файл для записи результатов
-    ofstream outfile("particle_qm1.csv");
-    outfile << "t,x_num,y_num,vx_num,vy_num,x_anal,y_anal,vx_anal,vy_anal\n";
+    Net1y.push_back(y0);
+    Net2x.push_back(x0);
+    Net2y.push_back(y0);
 
-    cout << "Расчет движения частицы с q/m = 1...\n";
-    cout << "Электрическое поле E = (" << Ex << ", " << Ey << ")\n";
-    cout << "Начальная скорость v0 = (" << vx0 << ", " << vy0 << ")\n\n";
+    Euler(x0, y0, Vx0, Vy0, h, n, Net1x, Net1y);
+    Euler(x0, y0, Vx0, Vy0, H, m, Net2x, Net2y);
 
-    for (int i = 0; i <= steps; i++) {
-        double t = t0 + i*h;
 
-        // Численное решение (кроме первого шага)
-        if (i > 0) {
-            eulerWithRefinement(r, v, t0, h);
-        }
-
-        // Аналитическое решение
-        double x_anal, y_anal, vx_anal, vy_anal;
-        analyticalSolution(t, x0, y0, vx0, vy0,
-                           x_anal, y_anal, vx_anal, vy_anal);
-
-        // Запись в файл
-        outfile << t << ","
-                << r[0] << "," << r[1] << ","
-                << v[0] << "," << v[1] << ","
-                << x_anal << "," << y_anal << ","
-                << vx_anal << "," << vy_anal << "\n";
-
-        // Вывод в консоль
-        if (i % 100 == 0) {
-            cout << fixed << setprecision(4);
-            cout << "t = " << setw(5) << t
-                 << "  |x| = " << setw(8) << abs(r[0] - x_anal)
-                 << "  |y| = " << setw(8) << abs(r[1] - y_anal)
-                 << "  |vx| = " << setw(8) << abs(v[0] - vx_anal)
-                 << "  |vy| = " << setw(8) << abs(v[1] - vy_anal)
-                 << endl;
-        }
+    for (int i = 0; i < Net1x.size()-1; ++i) {
+        resx.push_back(2 * Net1x[i] - Net2x[i+k]);
+        resy.push_back(2 * Net1y[i] - Net2y[i+k]);
+        ++k;
     }
+    for (int i = 0; i < resx.size(); ++i)
+        std::cout << fabs(resx[i] * resy[i] - Ca);
 
-    outfile.close();
-    cout << "\nРезультаты сохранены в particle_qm1.csv\n";
 
-    return 0;
 }
